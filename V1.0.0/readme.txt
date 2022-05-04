@@ -1,6 +1,6 @@
 ﻿ADVANCED MOVEMENT
 by GrayArea/Eccylsium
-[github link]
+https://github.com/ecclysium/advancedmovement
 Please be certain to check the link above frequently for SAORI updates. 
 
 Last Update: 5/4/2022

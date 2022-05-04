@@ -1,0 +1,507 @@
+//******************************************************************************
+// AdvancedMovement YAYA Utilities
+// An overhaul to animation by GrayArea/Ecclysium
+//******************************************************************************
+
+/*
+	Hello! Welcome to the utility file. 
+
+	These are a collection of functions that will ensure that using this SAORI is the smoothest it can be.
+At the top here, there are tests an examples that you can use. After that, we have intialization functions that you can
+run just to keep things speeding along. After that we have shorthand functions like AMMAKE and AMPAUSE so you don't have
+to keep typing out FUNCTIONEXs. After that are the functions the SAORI triggers, error functions, and finally functions
+you'll need to move into other places for ease that will allow you to use the SakuraScript parser which is included at 
+the bottom of the file, among other ease of use functions.
+
+	For a recap, here's how this is laid out:
+		- INSTALLATION TEST
+		- EXAMPLES
+		- SHORTHAND FUNCTIONS
+		- NEW SAORI-SPECIFIC FUNCTIONS
+		- ERROR FUNCTIONS
+		- FUNCTIONS YOU NEED TO MOVE ELSEWHERE TO COMPLETE INSTALLATION
+	
+** This file should be able to be included in your yaya.txt and left alone, after you install what functiond are at the bottom.
+** However, you may have a conflict with On_hwnd, in which you will need to merge those two functions. 
+** If you want the parser, merge what is given in the commented out OnTranslate at the bottom with the OnTranslate in 
+	your ghost. 
+** For error messages, you will need to add 'checkErrorQueue' to your OnSecondChange. 
+** Finally, if you want the user to be able to move your ghost and then the ghost corrects its course/falls, you can use the 
+	OnMouseDragStart and OnMouseDragEnd functions included, or simply add AMPAUSE(reference3) and AMACTIVATE(reference3)
+	to each function respectively.
+
+Thank you very much, and I hope you enjoy!
+-Gray/Eccli
+
+*/
+
+
+
+#globaldefine MAXOBJECTS 20
+//Use the above line to specify the objects you want to use in the SAORI. 
+//It will prepare \p[0]-\p[19] to be used as it is currently. 
+//Advanced Movement can control 15 total objects, however, the tag can be whatever you'd desire.
+//You could use characters 0, 8, 1, 44, and 82 for example (if initialized beforehand). Order does not matter.
+
+//   The maximum amount (15) may be increased in the future as the SAORI becomes more optimized.
+//   However, it currently may lag with more than 3 items if the computer is doing something else intense, 
+//   and cost high amounts of CPU power (It can be quite intensive for a computer to move a window), 
+//   so I recommend using no more than 8, max, preferably less than 5, unless you are testing or planning for
+//   the future when I fix this up more, or you plan to figure out how many the computer can support to not
+//   overwhelm the system, and only call that many.
+
+//NOTE: you may want to move this line to the top of the first file that appears in your yaya.txt.
+
+#globaldefine INSERTDELIM '##'
+//You may also want to put this with MAXOBJECTS. It's used in error processing as a 2D array delimiter.
+
+
+//Run this to make sure the SAORI is properly installed! (remember to call INITHWNDS in the boot sequence normally though!)
+AdvancedMovementTest{
+	AMinit
+	--
+	"\![raise,OnAdvancedMovementTest]"
+}
+
+OnAdvancedMovementTest{
+	//This was written for Konno Yayame surfaces. Just make sure all of these are set to something!
+	"\0\s[10]\1\s[11]\p[2]\s[11]\p[9]\s[11]\p[8]\s[10]\p[3]\s[11]"
+	--
+	"|MK,H,9,10,3||MK,D,8,11||MK,H,1,20,80||MK,L,3,20||MK,D,2,12||MK,G,0,11,%(displayheight-40)|"
+	//you may need to change displayheight to whatever you use to get that info (OnDisplayChange)
+	--
+	"|AD,8,281,653,L||AD,8,322,20,L||AD,1,121,428,L||AD,3,121,428,L||AD,3,121,828,L||AD,3,221,628,L||AD,2,214,68,L||AD,9,800,800,L|"
+	--
+	"|AA|"
+	//you will have to activate every object after you make it, or make them all then call activateall (AA).
+}
+
+//Initialize the SAORI with everything it needs.
+AMinit{
+	INITHWNDS
+	//if you want a shorthand for starting this SAORI up, you can use this, just make sure to change these two.
+	//The first argument is processing speed in milliseconds. It's suggested to keep it between 5 and 15, but it may be as low as 2.
+	//It's synonymous with how long it will take in ms between each frame.
+	//The second is the speed of gravity. Play with it till it feels right.
+	//If you don't include gravity speed, it will be set to 98 (as in 9.8)
+	AMSTART(10,60)
+}
+
+
+
+//An example function you could do with this SAORI.
+//This function takes an object and draws a circle with it.
+//_argv[0]: The character/tag we are animating
+//_argv[1]: The x coordinate of the center of the circle
+//_argv[2]: The y coordinate of the center of the circle
+//_argv[3]: Magnitude of circle/radius
+//_argv[4]: How many points should be in each quarter of the circle (1 = 4 total points, 4 =16, etc)
+AMAnimateCircle : all {
+	_totalpoints = _argv[4] * 4
+	_x = _argv[1]
+	_y = _argv[2]
+	_angle = 0
+	//gotta at least have a diamond
+	if _totalpoints < 4{
+		_totalpoints = 4 
+	}
+	
+	//Draw the circle
+	for _i = 0; _i < _totalpoints; _i++{
+		_angle += 360/_totalpoints
+		_rad = DEGTORAD(_angle)
+		//parametric equation
+		_x = _argv[3]* COS(_rad) + _argv[1]
+		_y = _argv[3]* SIN(_rad) + _argv[2]
+		//queue it
+		AMADD(_argv[0],_x,_y - _argv[3])
+	}
+
+}
+
+//_argv[0] - a degree value
+DEGTORAD{
+	_result = _argv[0] * 3.14159/180
+	_result
+}
+
+//This needs to be called whenever the ghost boots up, and only then!
+//Do this before any talking occurs.
+INITHWNDS : all {
+	objecttypes = IARRAY
+	//any bonus tracking arrays should be initialized here
+	
+	//Change the 2 to a 1 if you want the kero to be included, but remain invisible.
+	for _i = 2 ; _i <= ARRAYSIZE(BODYHWND) ; _i++ 
+	{
+		objecttypes[_i] = IARRAY
+		"\p[%_i]\s[-1]"
+	}
+}
+
+
+
+
+//And, using the things above, here's the Fairy Lights code from the demo.
+//Easy, huh?
+//Do raise it though to call it, and then activate it (|AA|)
+OnAMRunFL{
+	"\p[5]\s[901]\p[6]\s[902]\p[7]\s[903]\p[8]\s[902]\p[9]\s[903]"
+	AMMAKE('L',5,10)
+	AMMAKE('L',6,10)
+	AMMAKE('L',7,12)
+	AMMAKE('L',8,10)
+	AMMAKE('L',9,10)
+	AMAnimateCircle(5,displaywidth-260,230,600,10)
+	AMAnimateCircle(6,displaywidth-790,280,650,10)
+	AMAnimateCircle(7,displaywidth-1310,210,800,10)
+	AMAnimateCircle(8,displaywidth-290,250,900,10)
+	AMAnimateCircle(9,displaywidth-570,290,1000,10)
+}
+	
+	
+	
+	
+	
+//Shorthand functions
+
+AMSTART : void{
+	FUNCTIONEX("advancedmovement.dll",BODYHWND[0],"start",_argv[0],_argv[1])
+	advancedmovementon = 1
+}
+
+OnAMKILL : void{
+	FUNCTIONEX("advancedmovement.dll",BODYHWND[0],"kill")
+	advancedmovementon = 0
+}
+
+AMKILL : void{
+	FUNCTIONEX("advancedmovement.dll",BODYHWND[0],"kill")
+	advancedmovementon = 0
+}
+
+
+//addpoint
+OnAMADD : void{
+	AMADD(reference0,reference1,reference2,reference3)
+}
+
+AMADD : void{
+	FUNCTIONEX("advancedmovement.dll",BODYHWND[0],"addpoint",_argv[0],_argv[1],_argv[2],_argv[3])
+}
+
+//pause
+OnAMPAUSE : void{
+	AMPAUSE(reference0)
+}
+
+AMPAUSE : void{
+	FUNCTIONEX("advancedmovement.dll",BODYHWND[0],"pause",_argv[0])
+}
+
+OnAMPAUSEALL : void{
+	AMPAUSEALL
+}
+
+AMPAUSEALL : void{
+	FUNCTIONEX("advancedmovement.dll",BODYHWND[0],"pauseall")
+}
+
+//activate
+OnAMACTIVATEALL : void{
+	AMACTIVATEALL
+}
+
+AMACTIVATEALL: void{
+	FUNCTIONEX("advancedmovement.dll",BODYHWND[0],"activateall")
+}
+
+OnAMACTIVATE : void{
+	AMACTIVATE(reference0)
+}
+
+AMACTIVATE : void{
+	FUNCTIONEX("advancedmovement.dll",BODYHWND[0],"activate",_argv[0])
+}
+
+//clear
+OnAMCLEAR : void{
+	AMCLEAR(reference0)
+}
+
+AMCLEAR : void{
+	FUNCTIONEX("advancedmovement.dll",BODYHWND[0],"clear",_argv[0])
+}
+
+//make
+OnAMMAKE : void{
+	AMMAKE(reference0,reference1,reference2,reference3)
+}
+
+AMMAKE : void{
+	if _argv[3] == ""{
+		_speed = 10
+	}else{
+		_speed = _argv[3]
+	}
+	_tag = TOSTR(_argv[1])
+	//_val = FUNCTIONEX("advancedmovement.dll",_sakurahwnd,"make","H",     BODYHWND[9],        9,       10,     3)
+	//_val = FUNCTIONEX("advancedmovement.dll",_sakurahwnd,"make","G",     BODYHWND[8],        8,       11,     displayheight-60)
+	FUNCTIONEX("advancedmovement.dll",BODYHWND[0],"make",_argv[0],BODYHWND[_argv[1]],_argv[1],_argv[2],_argv[3])
+	objecttypes[_argv[1]] = _argv[0]
+	
+	//The example FUNCTIONEX has been included so you know what each argument is doing! If you would like to track more information,
+	//you can initialize it here, like how objecttypes tracks the type of object-- so you can check for if the sakura can fall with
+	//something such as:
+		//if objecttypes[0] == "G"
+	//You'll need to go to the INITHWNDS function to clear the array, and then to any other function that could change it.
+	//So, if you wanted to track when items are paused, you'd mark them as paused in INITHWNDS, here (objects always start paused),
+	//and in AMACTIVATE & AMACTIVATEALL as unpaused and AMPAUSE & AMPAUSEALL as paused.
+	//It's much faster to keep track of the changes you make in this way than to always have the SAORI go check!
+}
+
+
+
+
+
+
+//New functions triggered by the SAORI
+/*
+//Ghost has reached a point, but not the end
+OnAMRedirect{
+	//reference0 is the tag number (as in \p[#])
+	//Whatever processing you'd like can go here!
+	
+	//An example of things you can do: 
+	if objecttypes[reference0] != "L"{
+		//types that ignore redirection commands, etc
+	}
+}
+
+//Ghost has finished the assigned path
+OnAMPathComplete{
+	//reference0 is the tag number (as in \p[#])
+	//Whatever processing you'd like can go here!
+}
+
+//Ghost has begun hovering
+OnAMStartHover{
+	//reference0 is the tag number (as in \p[#])
+	//Whatever processing you'd like can go here!
+}
+*/
+
+//An error has occurred
+OnAMError{
+	SENDERROR("[ADVANCEDMOVEMENT] " + reference0)
+
+}
+
+
+
+
+
+
+
+//ERROR TRACKING FUNCTIONS FOR EASE
+
+//Set up the queue
+initerrorqueue{
+	messageQueue = IARRAY
+}
+
+//Should be called from OnSecondChange
+//Sends the earliest arriving message from the error/message Queue.
+checkErrorQueue{
+	//If there is content to be sent as a message/error
+	if ARRAYSIZE(messageQueue) != 0{
+		//get this element
+		_item = messageQueue[0]
+		//Send its contents as separate 
+		ErrorLog(_item[0,INSERTDELIM],_item[1,INSERTDELIM])
+		//Delete this element now that it has been sent
+		messageQueue[0] = IARRAY
+	
+	}
+}
+
+//Put the message into the queue
+SENDERROR{
+	
+	//The delimiter cannot be used inside the message
+	if INSERTDELIM _in_ _argv[0] || INSERTDELIM _in_ _argv[1]{
+		_message = "Invalid error message: message contains system delimiter"
+		_message += INSERTDELIM
+		_message += "warning"
+		messageQueue,= _message
+	}else{
+	//Otherwise, the message is valid and may be sent to the queue.
+		_message = _argv[0]
+		_message += INSERTDELIM
+		_message += _argv[1]
+		messageQueue,= _message
+	}
+
+}
+
+//Log an error 
+//Adapted from Zichqec!
+ErrorLog
+{
+    _level = "warning" //It defaults to warning if it doesn't recognize what you've put in, so I will too. Other options are 'critical' and 'info'
+    if _argv[1] != ""; _level = _argv[1]
+	_errordesc = _argv[0]+C_BYTE1
+    SHIORI3FW.PushAdditionalReturn('ErrorLevel',_level)
+    SHIORI3FW.PushAdditionalReturn('ErrorDescription',_argv[0])
+	
+	
+}
+
+
+
+
+
+
+//OTHER FUNCTIONS YOU NEED TO PUT ELSEWHERE
+
+//This is triggered by the baseware. Some templates already have this, others don't.
+//If it's causing an issue, you might have to delete the other one first or merge them.
+On_hwnd
+{
+	BODYHWND = IARRAY
+	for _i = 0 ; _i <= MAXOBJECTS ; _i++ 
+	{
+		BODYHWND ,= reference0[_i]
+	}
+	//These are shorthands if you need them, but they are also gathered by the above two arrays!
+	/*
+	sakurahwnd    = reference0[0]
+	kerohwnd      = reference0[1]
+	sakurablnhwnd = reference1[0]
+	keroblnhwnd   = reference1[1]
+	*/
+}	
+
+
+/*
+
+OnTranslate
+{
+	//"TRANSLATING"
+	
+    _talk = reference0;
+	
+	//Output the translated result.
+     
+    if reference1 == "" && reference2 == ""
+    { //send input box : no event (ref2) , no special flag (ref1)
+        EVAL('"' + REPLACE(_talk,'"','" + CHR(0x22) + "') + '"')
+		
+		
+		//(this line is due to code formatter issues)" 
+    }
+    else
+    { 
+		//event result from ghost
+		
+		//Do any translate work to _talk here!
+		
+		
+		
+		//Leave this part alone to process the movement commands:
+		_sectioned = SPLIT(_talk,"|",0)
+		_final = ""
+		
+		
+		//Now the odd parts of sectioned are movement actions
+		for _i = 1; _i < ARRAYSIZE(_sectioned); _i+=2{
+			_tmargs = SPLIT(_sectioned[_i],",",0)
+			//Add the normal text.
+			_final += _sectioned[_i-1]
+			
+			//Now add the command.
+			if advancedmovementon{
+				case _tmargs[0]{
+					when "AD", "addpoint"{
+						_final += "\![raise,OnAMADD,%_tmargs[1],%_tmargs[2],%_tmargs[3],%_tmargs[4]]"
+					}
+					when "MK","make"{
+						_final += "\![raise,OnAMMAKE,%_tmargs[1],%_tmargs[2],%_tmargs[3],%_tmargs[4]]"
+					}
+					when "P","pause"{
+						_final += "\![raise,OnAMPAUSE,%_tmargs[1]]"
+					}
+					when "PA","pauseall"{
+						_final += "\![raise,OnAMPAUSEALL]"
+					}
+					when "A","activate"{
+						_final += "\![raise,OnAMACTIVATE,%_tmargs[1]]"
+					}
+					when "AA","activateall"{
+						_final += "\![raise,OnAMACTIVATEALL]"
+					}
+					when "K","kill"{
+						_final += "\![raise,OnAMPAUSEALL]\![raise,OnAMKILL]"
+					}
+					when "C","clear"{
+						_final += "\![raise,OnAMCLEAR,%_argv[1]]"
+					}
+					others{
+						SENDERROR("ERROR: COMMAND '%(_tmargs)' (part %_i/%(ARRAYSIZE(_sectioned))) DOES NOT EXIST")
+					}
+				
+				}
+			}else{
+				SENDERROR("ERROR: CANNOT MOVE, ADVANCEDMOVEMENT HAS NOT STARTED")
+			}
+			
+		}
+			//There may be one left to go. Otherwise, this will be an emtpy string.
+			_final += _sectioned[ARRAYSIZE(_sectioned)]
+			TOSTR(_final);
+    }
+
+}
+
+*/
+
+
+/*
+
+OnSecondChange
+{
+//From the Konno Yayame template.
+
+	if AYATEMPLATE.mikireflag == 1 && reference[1] == 0
+	{
+		//---- end of the offscreen chain
+		EndMikireTalk
+	}
+	AYATEMPLATE.mikireflag = reference[1]
+	checkErrorQueue //<---- this needs to be in here if you want error messages
+}
+
+*/
+
+
+//You'll need these if you want users to be able to pick up your ghost cleanly.
+/*
+
+OnMouseDragStart{
+	AMPAUSE(reference3)
+	//"\p[%reference3]Oh!"
+
+}
+
+OnMouseDragEnd{
+	AMACTIVATE(reference3)
+	//"\p[%reference3]Woah, I've been moved."
+
+}
+
+*/
+
+
+
+
+

@@ -1,10 +1,10 @@
 ﻿ADVANCED MOVEMENT
 by GrayArea/Eccylsium
-[github link]
+https://github.com/ecclysium/advancedmovement
 Please be certain to check the link above frequently for SAORI updates. 
 
-Last Update: 5/4/2022
-        -First release
+Last Update: 5/5/2022
+        -First official release
 
 
 This SAORI allows movement tracks to be specified for any number of characters in a ghost. They can be set to then hover, fall, or loop. Another file is included, am_utility.txt (thanks to Zichqec for the error function in there), that is full of functions that will streamline usage of this SAORI. Most importantly, it contains a parser that allows movement to be called from SakuraScript in a shorthand. It also contains an initialization function, easy access functions for each action, and a function to set up arrays to keep track of information about created objects. 
@@ -218,14 +218,14 @@ Parameters:
 2. BASEWARE MOVEMENT: 
    * Similarly to the above, if you want to use SSP baseware movement functions, you may, but if the ghost is in the middle of moving, you will want to pause or clear it first. 
 3. SAKURA WON’T ANIMATE: 
-   * If you can’t get the Sakura to animate, put the parameters sent to the SAORI in quotations, then it should work. The utility functions should guard against this, however.
+   * If you can’t get the Sakura to animate, put the parameters sent to the SAORI in quotations, then it should work. The utility functions should implement measures to make sure arguments are interpreted correctly. 
 4. ACTIVATING OBJECTS:
    * You only need to make/MK an object once when you are setting it up for use. After its been made, you can replace it in the system by making it again, deleting its content. This is useful if you need to change speed, magnitude, where the floor is (you might want to do this when an object changes monitors), or an object type entirely.
 5. RAISE CHAINING: 
    * The order SSP executes things in may catch you off guard. The parser works by chaining a message through many raise functions. Mixing multiple methods of talking to the SAORI can cause problems, so choose either functions (TMMAKE(args)) or SakuraScript (|MK,args|) and keep it consistent to minimize hard-to-catch bugs.
 6. ON HWNDS: 
    * You'll need to have the hwnd of anything you'd like to move. This means you have to show that character before you make the object. Here's a function to set things up (included in am_utility):
-//Do this before any talking occurs.
+//Do this before any talking occurs. Even before starting the SAORI.
 INITHWNDS : all {
         objecttypes = IARRAY
         //any bonus tracking arrays should be initialized here

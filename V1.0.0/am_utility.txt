@@ -447,6 +447,7 @@ OnTranslate
 						_final += "\![raise,OnAMCLEAR,%_argv[1]]"
 					}
 					others{
+						//if 
 						SENDERROR("ERROR: COMMAND '%(_tmargs)' (part %_i/%(ARRAYSIZE(_sectioned))) DOES NOT EXIST")
 					}
 				
@@ -456,9 +457,9 @@ OnTranslate
 			}
 			
 		}
-			//There may be one left to go. Otherwise, this will be an emtpy string.
-			_final += _sectioned[ARRAYSIZE(_sectioned)]
-			TOSTR(_final);
+		//There may be one left to go. Otherwise, this will be an emtpy string.
+		_final += _sectioned[ARRAYSIZE(_sectioned)-1]
+		TOSTR(_final);
     }
 
 }
